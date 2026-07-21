@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def find_best_placement(
     db: AsyncSession,
     user_id: UUID,
-    doc_embedding: list[float],
+    doc_embedding: list[float] | None,
     doc_summary: str,
 ) -> dict:
     """
@@ -32,9 +32,10 @@ async def find_best_placement(
       - why: explanation string
     """
     # ── Step 1: Check placement rules (learning loop, Phase 8) ───────────────
-    rule_result = await _check_placement_rules(db, user_id, doc_embedding)
-    if rule_result:
-        return rule_result
+    if doc_embedding:
+        rule_result = await _check_placement_rules(db, user_id, doc_embedding)
+        if rule_result:
+            return rule_result
 
     # ── Step 2: Score all indexed folders ────────────────────────────────────
     stmt = select(FolderIndex).where(FolderIndex.user_id == user_id)
@@ -42,11 +43,11 @@ async def find_best_placement(
     folders = result.scalars().all()
 
     if not folders:
-        return {"mode": "fallback", "candidates": [], "why": "No folders found — please sync your Drive."}
+        return {"mode": "fallback", "candidates": [], "why": "No folders found in your Drive cache. Click Settings to sync your Drive folders."}
 
     scored = []
     for folder in folders:
-        if folder.embedding:
+        if doc_embedding and folder.embedding:
             sim = cosine_similarity(doc_embedding, list(folder.embedding))
         else:
             sim = 0.0
@@ -58,7 +59,7 @@ async def find_best_placement(
         })
 
     scored.sort(key=lambda x: x["confidence"], reverse=True)
-    top = scored[:3]
+    top = scored[:5]
     best = top[0] if top else None
 
     if not best:

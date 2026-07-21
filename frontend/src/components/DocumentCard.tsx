@@ -138,6 +138,24 @@ export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
               <CheckCircle size={14} /> File in {best.folder_name}
             </button>
           )}
+      {/* Fallback when needs_input but no placement or candidates found */}
+      {doc.status === 'needs_input' && (!placement || !placement.candidates || placement.candidates.length === 0) && (
+        <div style={{
+          background: 'var(--color-surface-3)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 10,
+          padding: '0.875rem',
+          fontSize: '0.8rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+        }}>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+            No cached Drive folders found to suggest placement. Please sync your Google Drive folder tree.
+          </p>
+          <a href="/settings" className="btn-secondary" style={{ alignSelf: 'flex-start', fontSize: '0.75rem', padding: '0.4rem 0.75rem', textDecoration: 'none' }}>
+            ⚙️ Go to Settings & Sync Folders
+          </a>
         </div>
       )}
 

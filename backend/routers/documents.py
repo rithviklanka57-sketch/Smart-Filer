@@ -126,10 +126,10 @@ async def get_document(
         "created_at": doc.created_at.isoformat(),
     }
 
-    # Include placement suggestion if ready
-    if doc.embedding and doc.status in ("needs_input", "pending"):
+    # Include placement suggestion if ready or needs input
+    if doc.status in ("needs_input", "pending"):
         placement = await find_best_placement(
-            db, current_user.id, list(doc.embedding), doc.summary or doc.filename
+            db, current_user.id, list(doc.embedding) if doc.embedding else None, doc.summary or doc.filename
         )
         payload["placement"] = placement
 
