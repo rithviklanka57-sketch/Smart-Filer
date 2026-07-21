@@ -255,7 +255,7 @@ export default function Home({ user }: Props) {
   }
 
   const pendingCount = documents.filter(d =>
-    ['pending', 'extracting', 'classifying'].includes(d.status)
+    ['extracting', 'classifying'].includes(d.status) || (d.status === 'pending' && !d.placement)
   ).length
 
   return (

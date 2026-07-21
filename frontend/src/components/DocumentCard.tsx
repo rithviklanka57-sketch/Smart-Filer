@@ -25,7 +25,9 @@ interface Props {
 
 export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
   const statusInfo = {
-    pending: { label: 'Processing', color: 'var(--color-warning)', icon: <Clock size={13} className="status-pulse" /> },
+    pending: doc.placement
+      ? { label: 'Ready to file', color: 'var(--color-brand-400)', icon: <CheckCircle size={13} /> }
+      : { label: 'Processing', color: 'var(--color-warning)', icon: <Clock size={13} className="status-pulse" /> },
     extracting: { label: 'Extracting text', color: 'var(--color-info)', icon: <Clock size={13} className="status-pulse" /> },
     classifying: { label: 'Analyzing with AI', color: 'var(--color-brand-400)', icon: <Clock size={13} className="status-pulse" /> },
     needs_input: { label: 'Needs your input', color: 'var(--color-warning)', icon: <AlertCircle size={13} /> },
