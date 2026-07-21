@@ -15,14 +15,18 @@ client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 
 def _call(system: str, user: str, max_tokens: int = 1024) -> str:
-    """Raw Anthropic call; returns assistant message text."""
-    response = client.messages.create(
-        model=settings.ANTHROPIC_MODEL,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    return response.content[0].text
+    """Raw Anthropic call; returns assistant message text or empty string on failure."""
+    try:
+        response = client.messages.create(
+            model=settings.ANTHROPIC_MODEL,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return response.content[0].text
+    except Exception as e:
+        logger.warning("Anthropic API call failed (using graceful fallback): %s", e)
+        return ""
 
 
 def classify_document(extracted_text: str) -> dict[str, Any]:
@@ -43,6 +47,14 @@ def classify_document(extracted_text: str) -> dict[str, Any]:
     )
     prompt = f"Classify this document:\n\n{extracted_text[:8000]}"
     raw = _call(system, prompt, max_tokens=512)
+    if not raw:
+        first_line = extracted_text.strip().split("\n")[0][:80] if extracted_text else "Document"
+        return {
+            "doc_type": "document",
+            "summary": extracted_text[:250].strip() if extracted_text else "Uploaded document",
+            "entities": {"dates": [], "orgs": [], "amounts": []},
+            "suggested_topic": first_line,
+        }
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
@@ -77,6 +89,8 @@ def generate_clarifying_question(
         "Generate one clarifying question."
     )
     raw = _call(system, prompt, max_tokens=256)
+    if not raw:
+        return {"question": "Which folder should this go in?", "options": folder_names}
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
@@ -95,6 +109,8 @@ def propose_folder_name(member_summaries: list[str]) -> dict[str, Any]:
     combined = "\n---\n".join(member_summaries[:10])
     prompt = f"These documents are related:\n{combined}\n\nPropose a folder name."
     raw = _call(system, prompt, max_tokens=128)
+    if not raw:
+        return {"folder_name": "Related Documents", "topic_label": "documents"}
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
@@ -110,4 +126,7 @@ def explain_placement(doc_summary: str, folder_path: str, confidence: float) -> 
         f"Confidence: {confidence:.0%}\n"
         "Why is this a good match? (one sentence)"
     )
-    return _call(system, prompt, max_tokens=100).strip()
+    res = _call(system, prompt, max_tokens=100)
+    if not res:
+        return f"Matched folder based on content similarity ({confidence:.0%})."
+    return res.strip()
