@@ -2,6 +2,7 @@
 routers/documents.py — Upload, status, clarifying answers, and placement confirmation.
 """
 import os
+import tempfile
 import logging
 from typing import Annotated
 from uuid import UUID

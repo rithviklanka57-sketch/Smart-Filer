@@ -160,8 +160,10 @@ export default function Home({ user }: Props) {
         }
         // Optimistically add the card immediately
         setDocuments(prev => [newDoc, ...prev])
-      } catch (e) {
+      } catch (e: any) {
         console.error('Upload failed', e)
+        const msg = e.response?.data?.detail || e.message || 'Upload failed'
+        alert(`Upload failed for ${file.name}: ${msg}`)
       }
     }
     setUploading(false)
