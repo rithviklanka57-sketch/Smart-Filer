@@ -76,7 +76,7 @@ export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
       )}
 
       {/* Placement suggestion */}
-      {placement && best && (
+      {placement && (
         <div style={{
           background: 'var(--color-surface-3)',
           border: '1px solid var(--color-border)',
@@ -86,13 +86,15 @@ export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
           flexDirection: 'column',
           gap: '0.625rem',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <FolderOpen size={14} color="var(--color-brand-400)" />
-            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{best.path}</span>
-            <span className={`badge ${badgeClass}`} style={{ marginLeft: 'auto' }}>
-              {Math.round(confidence * 100)}%
-            </span>
-          </div>
+          {best && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FolderOpen size={14} color="var(--color-brand-400)" />
+              <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{best.path}</span>
+              <span className={`badge ${badgeClass}`} style={{ marginLeft: 'auto' }}>
+                {Math.round(confidence * 100)}%
+              </span>
+            </div>
+          )}
 
           {placement.why && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
@@ -103,35 +105,37 @@ export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
             </div>
           )}
 
-          {/* Clarifying question mode */}
-          {placement.mode === 'question' && placement.question && (
+          {/* Folder choices when input is needed */}
+          {(placement.mode === 'question' || placement.mode === 'fallback' || doc.status === 'needs_input') && placement.candidates && placement.candidates.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.25rem', borderTop: '1px solid var(--color-border)' }}>
-              <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 500 }}>{placement.question}</p>
+              <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 500 }}>
+                {placement.question || 'Select target folder:'}
+              </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {placement.candidates.slice(0, 3).map(c => (
                   <button
                     id={`answer-btn-${c.folder_id}`}
                     key={c.folder_id}
                     className="btn-secondary"
-                    style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem' }}
-                    onClick={() => onAnswer?.(c.folder_id, c.folder_name)}
+                    style={{ fontSize: '0.75rem', padding: '0.45rem 0.8rem', cursor: 'pointer' }}
+                    onClick={() => onAnswer ? onAnswer(c.folder_id, c.folder_name) : onConfirm?.(c.folder_id, c.folder_name)}
                   >
-                    {c.path}
+                    📁 {c.path} ({Math.round(c.confidence * 100)}%)
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Confirm button (auto or after answer) */}
-          {(placement.mode === 'auto' || doc.status === 'pending') && doc.status !== 'placed' && (
+          {/* Confirm button */}
+          {(placement.mode === 'auto' || doc.status === 'pending') && doc.status !== 'placed' && best && (
             <button
               id={`confirm-btn-${doc.id}`}
               className="btn-primary"
-              style={{ alignSelf: 'flex-start', fontSize: '0.8rem', padding: '0.5rem 1rem' }}
+              style={{ alignSelf: 'flex-start', fontSize: '0.8rem', padding: '0.5rem 1rem', marginTop: '0.25rem' }}
               onClick={() => onConfirm?.(best.folder_id, best.folder_name)}
             >
-              <CheckCircle size={14} /> File it here
+              <CheckCircle size={14} /> File in {best.folder_name}
             </button>
           )}
         </div>
