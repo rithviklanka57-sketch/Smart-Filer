@@ -138,6 +138,8 @@ export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
               <CheckCircle size={14} /> File in {best.folder_name}
             </button>
           )}
+        </div>
+      )}
       {/* Fallback when needs_input but no placement or candidates found */}
       {doc.status === 'needs_input' && (!placement || !placement.candidates || placement.candidates.length === 0) && (
         <div style={{
