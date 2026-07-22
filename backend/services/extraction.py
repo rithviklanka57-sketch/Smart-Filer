@@ -44,11 +44,10 @@ def _extract_pdf(file_bytes: bytes) -> str:
             tmp_path = tmp.name
         try:
             with pdfplumber.open(tmp_path) as pdf:
-                pages = [page.extract_text() or "" for page in pdf.pages]
+                # Limit extraction to first 5 pages for ultra-fast performance
+                target_pages = pdf.pages[:5]
+                pages = [page.extract_text() or "" for page in target_pages]
             text = "\n".join(pages).strip()
-            if not text:
-                # Fallback to OCR if no text layer
-                return _extract_image_ocr(file_bytes)
             return text
         finally:
             os.unlink(tmp_path)

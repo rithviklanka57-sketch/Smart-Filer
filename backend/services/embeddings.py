@@ -30,7 +30,7 @@ async def embed_text(text: str) -> Optional[list[float]]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
                 f"{settings.EMBEDDING_BASE_URL}/embeddings",
                 json=payload,

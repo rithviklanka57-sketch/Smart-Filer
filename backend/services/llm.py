@@ -11,7 +11,7 @@ import anthropic
 from config import settings
 
 logger = logging.getLogger(__name__)
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=5.0)
 
 
 def _call(system: str, user: str, max_tokens: int = 1024) -> str:

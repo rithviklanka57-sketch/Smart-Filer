@@ -46,7 +46,7 @@ def _run_async(coro):
         loop.close()
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
+@celery_app.task(bind=True, max_retries=0)
 def process_document(self, document_id: str, user_id: str, file_path: str, filename: str, mime_type: str):
     """
     Full analysis pipeline for a single document:
@@ -68,7 +68,6 @@ def process_document(self, document_id: str, user_id: str, file_path: str, filen
     except Exception as exc:
         logger.error("process_document failed for %s: %s", document_id, exc)
         _run_async(_update_status(document_id, "error", str(exc)))
-        raise self.retry(exc=exc)
     finally:
         # Always clean up temp upload file; permanent store is kept separately
         if os.path.exists(file_path):
