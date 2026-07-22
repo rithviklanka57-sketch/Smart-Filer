@@ -114,6 +114,9 @@ export default function Home({ user }: Props) {
     ws.onerror = () => ws.close()
   }, [fetchOneDocument, fetchClusters]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const docsRef = useRef<DocumentData[]>(documents)
+  docsRef.current = documents
+
   // ── Fallback polling (only active when WS is disconnected) ────────────────
   const startFallbackPoll = useCallback(() => {
     if (pollRef.current) return
@@ -123,17 +126,14 @@ export default function Home({ user }: Props) {
         pollRef.current = null
         return
       }
-      setDocuments(prev => {
-        const hasPending = prev.some(d =>
-          ['pending', 'extracting', 'classifying'].includes(d.status)
-        )
-        if (hasPending) {
-          fetchDocuments()
-          fetchClusters()
-        }
-        return prev
-      })
-    }, 5000)
+      const hasPending = docsRef.current.some(d =>
+        ['pending', 'extracting', 'classifying'].includes(d.status)
+      )
+      if (hasPending) {
+        fetchDocuments()
+        fetchClusters()
+      }
+    }, 4000)
   }, [fetchDocuments, fetchClusters])
 
   useEffect(() => {

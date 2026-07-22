@@ -11,7 +11,10 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/auth': 'http://localhost:8000',
-      '/documents': 'http://localhost:8000',
+      '/documents': {
+        target: 'http://localhost:8000',
+        ws: true,
+      },
       '/folders': 'http://localhost:8000',
       '/clusters': 'http://localhost:8000',
       '/search': 'http://localhost:8000',
