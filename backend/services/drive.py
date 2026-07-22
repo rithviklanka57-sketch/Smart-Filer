@@ -136,10 +136,15 @@ async def list_files_in_folder(access_token: str, folder_id: str) -> list[dict]:
 
 
 async def delete_file(access_token: str, file_id: str) -> None:
-    """Move a file to trash (soft delete)."""
+    """Move a file to Google Drive trash (soft delete)."""
     service = _get_drive_service(access_token)
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(
-        None,
-        lambda: service.files().trash(fileId=file_id).execute(),
-    )
+    try:
+        await loop.run_in_executor(
+            None,
+            lambda: service.files().update(fileId=file_id, body={"trashed": True}).execute(),
+        )
+        logger.info("Trashed file %s on Drive", file_id)
+    except Exception as e:
+        logger.warning("Failed to trash file %s on Drive: %s", file_id, e)
+

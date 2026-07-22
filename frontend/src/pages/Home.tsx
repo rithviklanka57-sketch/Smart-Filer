@@ -6,6 +6,7 @@ import UploadDropzone from '../components/UploadDropzone'
 import DocumentCard, { type DocumentData } from '../components/DocumentCard'
 import ClusterBanner, { type ClusterData } from '../components/ClusterBanner'
 import BatchTable from '../components/BatchTable'
+import DeleteModal from '../components/DeleteModal'
 
 interface Props {
   user: User | null
@@ -17,6 +18,8 @@ export default function Home({ user }: Props) {
   const [uploading, setUploading] = useState(false)
   const [view, setView] = useState<'cards' | 'table'>('cards')
   const [wsConnected, setWsConnected] = useState(false)
+  const [docsToDelete, setDocsToDelete] = useState<DocumentData[]>([])
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -211,6 +214,41 @@ export default function Home({ user }: Props) {
     }
   }
 
+  // ── Delete handlers ───────────────────────────────────────────────────────
+  const openDeleteModalForDoc = (doc: DocumentData) => {
+    setDocsToDelete([doc])
+  }
+
+  const openDeleteModalForBatch = (docIds: string[]) => {
+    const targetDocs = documents.filter(d => docIds.includes(d.id))
+    setDocsToDelete(targetDocs)
+  }
+
+  const handleConfirmDelete = async (deleteFromDrive: boolean) => {
+    if (docsToDelete.length === 0) return
+    setDeleteLoading(true)
+    try {
+      if (docsToDelete.length === 1) {
+        const doc = docsToDelete[0]
+        await api.delete(`/documents/${doc.id}`, { params: { delete_from_drive: deleteFromDrive } })
+        setDocuments(prev => prev.filter(d => d.id !== doc.id))
+      } else {
+        const docIds = docsToDelete.map(d => d.id)
+        await api.post('/documents/batch-delete', {
+          document_ids: docIds,
+          delete_from_drive: deleteFromDrive,
+        })
+        setDocuments(prev => prev.filter(d => !docIds.includes(d.id)))
+      }
+      setDocsToDelete([])
+    } catch (e: any) {
+      console.error('Delete failed', e)
+      alert(e.response?.data?.detail || 'Failed to delete document(s)')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   // ── Unauthenticated landing ───────────────────────────────────────────────
   if (!user) {
     return (
@@ -330,17 +368,32 @@ export default function Home({ user }: Props) {
                 doc={doc}
                 onAnswer={(fId, fName) => handleAnswer(doc.id, fId, fName)}
                 onConfirm={(fId, fName) => handleConfirm(doc.id, fId, fName)}
+                onDelete={openDeleteModalForDoc}
               />
             ))}
           </div>
         ) : (
-          <BatchTable documents={documents} onBulkApprove={handleBulkApprove} />
+          <BatchTable
+            documents={documents}
+            onBulkApprove={handleBulkApprove}
+            onBulkDelete={openDeleteModalForBatch}
+            onDeleteSingle={openDeleteModalForDoc}
+          />
         )
       ) : (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
           <p style={{ fontSize: '0.9rem' }}>No documents yet. Upload your first file above.</p>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        isOpen={docsToDelete.length > 0}
+        documents={docsToDelete}
+        onClose={() => setDocsToDelete([])}
+        onConfirm={handleConfirmDelete}
+        loading={deleteLoading}
+      />
     </div>
   )
 }

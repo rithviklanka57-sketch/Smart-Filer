@@ -1,4 +1,4 @@
-import { FileText, CheckCircle, Clock, AlertCircle, ExternalLink, FolderOpen, Sparkles } from 'lucide-react'
+import { FileText, CheckCircle, Clock, AlertCircle, ExternalLink, FolderOpen, Sparkles, Trash2 } from 'lucide-react'
 
 export interface DocumentData {
   id: string
@@ -21,9 +21,10 @@ interface Props {
   doc: DocumentData
   onAnswer?: (folderId: string, folderName: string) => void
   onConfirm?: (folderId: string, folderName: string) => void
+  onDelete?: (doc: DocumentData) => void
 }
 
-export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
+export default function DocumentCard({ doc, onAnswer, onConfirm, onDelete }: Props) {
   const statusInfo = {
     pending: doc.placement
       ? { label: 'Ready to file', color: 'var(--color-brand-400)', icon: <CheckCircle size={13} /> }
@@ -43,7 +44,7 @@ export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
   const badgeClass = confidence >= 0.85 ? 'badge-high' : confidence >= 0.6 ? 'badge-medium' : 'badge-low'
 
   return (
-    <div id={`doc-card-${doc.id}`} className="glass-card fade-in-up" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+    <div id={`doc-card-${doc.id}`} className="glass-card fade-in-up" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem', position: 'relative' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
         <div style={{
@@ -63,10 +64,44 @@ export default function DocumentCard({ doc, onAnswer, onConfirm }: Props) {
             </div>
           )}
         </div>
-        {/* Status badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: statusInfo.color, flexShrink: 0 }}>
-          {statusInfo.icon}
-          {statusInfo.label}
+        {/* Status badge & Delete Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: statusInfo.color }}>
+            {statusInfo.icon}
+            {statusInfo.label}
+          </div>
+          {onDelete && (
+            <button
+              id={`delete-doc-btn-${doc.id}`}
+              className="btn-danger"
+              title="Delete document"
+              style={{
+                padding: '0.35rem',
+                borderRadius: 6,
+                background: 'transparent',
+                border: '1px solid transparent',
+                color: 'var(--color-text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.color = 'var(--color-error)'
+                e.currentTarget.style.background = 'rgba(244, 63, 94, 0.12)'
+                e.currentTarget.style.borderColor = 'rgba(244, 63, 94, 0.3)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.color = 'var(--color-text-muted)'
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.borderColor = 'transparent'
+              }}
+              onClick={() => onDelete(doc)}
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
         </div>
       </div>
 

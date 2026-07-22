@@ -16,7 +16,7 @@ from config import settings
 from database import get_db
 from models import Document, Placement, User
 from routers.deps import get_current_user
-from services.drive import refresh_access_token, upload_file, list_files_in_folder
+from services.drive import refresh_access_token, upload_file, list_files_in_folder, delete_file
 from services.placement import find_best_placement, record_placement_rule
 from workers.tasks import process_document
 
@@ -297,3 +297,81 @@ async def confirm_placement(
         "drive_file_id": drive_result["id"],
         "web_view_link": drive_result.get("webViewLink"),
     }
+
+
+# ── Delete document(s) ────────────────────────────────────────────────────────
+class BatchDeleteRequest(BaseModel):
+    document_ids: list[UUID]
+    delete_from_drive: bool = False
+
+
+@router.delete("/{document_id}")
+async def delete_document(
+    document_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    delete_from_drive: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a document record from app DB, and optionally delete from Google Drive."""
+    stmt = select(Document).where(
+        Document.id == document_id, Document.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    if delete_from_drive and doc.drive_file_id:
+        if current_user.refresh_token_encrypted:
+            try:
+                access_token = await refresh_access_token(current_user.refresh_token_encrypted)
+                await delete_file(access_token, doc.drive_file_id)
+            except Exception as e:
+                logger.warning("Drive delete error for doc %s: %s", doc.id, e)
+
+    from workers.tasks import delete_stored_file
+    delete_stored_file(str(doc.id), doc.filename)
+
+    await db.delete(doc)
+    await db.commit()
+    return {"ok": True, "deleted_id": str(document_id)}
+
+
+@router.post("/batch-delete")
+async def batch_delete_documents(
+    body: BatchDeleteRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete multiple documents in batch, optionally deleting placed ones from Drive."""
+    if not body.document_ids:
+        return {"ok": True, "deleted_count": 0}
+
+    stmt = select(Document).where(
+        Document.id.in_(body.document_ids), Document.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    docs = result.scalars().all()
+
+    if not docs:
+        return {"ok": True, "deleted_count": 0}
+
+    from workers.tasks import delete_stored_file
+
+    access_token = None
+    if body.delete_from_drive and current_user.refresh_token_encrypted:
+        try:
+            access_token = await refresh_access_token(current_user.refresh_token_encrypted)
+        except Exception as e:
+            logger.warning("Failed to refresh token for batch drive delete: %s", e)
+
+    deleted_count = 0
+    for doc in docs:
+        if body.delete_from_drive and doc.drive_file_id and access_token:
+            await delete_file(access_token, doc.drive_file_id)
+        delete_stored_file(str(doc.id), doc.filename)
+        await db.delete(doc)
+        deleted_count += 1
+
+    await db.commit()
+    return {"ok": True, "deleted_count": deleted_count}

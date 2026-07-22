@@ -1,26 +1,23 @@
 import { useState } from 'react'
-import { CheckSquare, Square, Zap } from 'lucide-react'
+import { CheckSquare, Square, Zap, Trash2 } from 'lucide-react'
 import type { DocumentData } from './DocumentCard'
 
 interface Props {
   documents: DocumentData[]
   onBulkApprove: (docIds: string[], threshold: number) => void
+  onBulkDelete?: (docIds: string[]) => void
+  onDeleteSingle?: (doc: DocumentData) => void
 }
 
-export default function BatchTable({ documents, onBulkApprove }: Props) {
+export default function BatchTable({ documents, onBulkApprove, onBulkDelete, onDeleteSingle }: Props) {
   const [threshold, setThreshold] = useState(0.9)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const eligible = documents.filter(d => {
-    const conf = d.placement?.candidates?.[0]?.confidence ?? 0
-    return conf >= threshold && d.status !== 'placed'
-  })
-
   const toggleAll = () => {
-    if (selected.size === eligible.length) {
+    if (selected.size === documents.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(eligible.map(d => d.id)))
+      setSelected(new Set(documents.map(d => d.id)))
     }
   }
 
@@ -33,7 +30,18 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
   }
 
   const handleApprove = () => {
-    onBulkApprove(Array.from(selected), threshold)
+    const eligibleSelected = Array.from(selected).filter(id => {
+      const doc = documents.find(d => d.id === id)
+      const conf = doc?.placement?.candidates?.[0]?.confidence ?? 0
+      return conf >= threshold && doc?.status !== 'placed'
+    })
+    onBulkApprove(eligibleSelected, threshold)
+  }
+
+  const handleDelete = () => {
+    if (selected.size > 0 && onBulkDelete) {
+      onBulkDelete(Array.from(selected))
+    }
   }
 
   if (documents.length === 0) return null
@@ -50,10 +58,22 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
         flexWrap: 'wrap',
       }}>
         <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-          Batch Review
+          Batch Review ({documents.length})
         </span>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+          {onBulkDelete && selected.size > 0 && (
+            <button
+              id="bulk-delete-btn"
+              className="btn-danger"
+              style={{ fontSize: '0.8rem', padding: '0.45rem 0.875rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              onClick={handleDelete}
+            >
+              <Trash2 size={14} /> Delete ({selected.size})
+            </button>
+          )}
+
+          <label style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginLeft: '0.5rem' }}>
             Approve ≥
           </label>
           <select
@@ -73,6 +93,7 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
             <option value={0.85}>85%</option>
             <option value={0.75}>75%</option>
           </select>
+
           <button
             id="bulk-approve-btn"
             className="btn-primary"
@@ -80,7 +101,7 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
             onClick={handleApprove}
             disabled={selected.size === 0}
           >
-            <Zap size={14} /> Approve {selected.size > 0 ? `(${selected.size})` : 'all'}
+            <Zap size={14} /> Approve {selected.size > 0 ? `(${selected.size})` : ''}
           </button>
         </div>
       </div>
@@ -92,7 +113,7 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
             <tr style={{ background: 'var(--color-surface-3)' }}>
               <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: 40 }}>
                 <button id="batch-toggle-all" onClick={toggleAll} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', display: 'flex' }}>
-                  {selected.size === eligible.length && eligible.length > 0
+                  {selected.size === documents.length && documents.length > 0
                     ? <CheckSquare size={16} />
                     : <Square size={16} />
                   }
@@ -102,13 +123,13 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
               <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600 }}>Suggested Folder</th>
               <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600 }}>Confidence</th>
               <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600 }}>Status</th>
+              <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 600 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {documents.map((doc) => {
               const best = doc.placement?.candidates?.[0]
               const conf = best?.confidence ?? 0
-              const isEligible = conf >= threshold && doc.status !== 'placed'
               const badgeClass = conf >= 0.85 ? 'badge-high' : conf >= 0.6 ? 'badge-medium' : 'badge-low'
 
               return (
@@ -118,16 +139,13 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
                   style={{
                     borderTop: '1px solid var(--color-border)',
                     background: selected.has(doc.id) ? 'rgba(77,120,255,0.06)' : 'transparent',
-                    opacity: isEligible ? 1 : 0.5,
                     transition: 'background 0.15s',
                   }}
                 >
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    {isEligible && (
-                      <button onClick={() => toggle(doc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: selected.has(doc.id) ? 'var(--color-brand-400)' : 'var(--color-text-muted)', display: 'flex' }}>
-                        {selected.has(doc.id) ? <CheckSquare size={16} /> : <Square size={16} />}
-                      </button>
-                    )}
+                    <button onClick={() => toggle(doc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: selected.has(doc.id) ? 'var(--color-brand-400)' : 'var(--color-text-muted)', display: 'flex' }}>
+                      {selected.has(doc.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                    </button>
                   </td>
                   <td style={{ padding: '0.75rem 1rem', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {doc.filename}
@@ -140,6 +158,28 @@ export default function BatchTable({ documents, onBulkApprove }: Props) {
                   </td>
                   <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>
                     {doc.status}
+                  </td>
+                  <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                    {onDeleteSingle && (
+                      <button
+                        className="btn-danger"
+                        title="Delete file"
+                        style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid transparent', color: 'var(--color-text-muted)' }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = 'var(--color-error)'
+                          e.currentTarget.style.background = 'rgba(244, 63, 94, 0.12)'
+                          e.currentTarget.style.borderColor = 'rgba(244, 63, 94, 0.3)'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = 'var(--color-text-muted)'
+                          e.currentTarget.style.background = 'transparent'
+                          e.currentTarget.style.borderColor = 'transparent'
+                        }}
+                        onClick={() => onDeleteSingle(doc)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               )
